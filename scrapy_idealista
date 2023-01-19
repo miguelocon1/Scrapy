@@ -1,0 +1,37 @@
+import scrapy
+from scrapy.linkextractors import LinkExtractor
+from scrapy.spiders import CrawlSpider, Rule
+from scrapy.selector import Selector
+from scrapy.loader import ItemLoader
+from scrapy.item import Item, Field
+from scrapy.loader.processors import MapCompose
+
+class Casa(Item):
+    nombre = Field()
+    precio = Field()
+    distrito = Field()
+
+class Idealista(CrawlSpider):
+    name = "Idealista"
+    start_urls = ["https://www.idealista.com/venta-viviendas/madrid/tetuan/cuzco-castillejos/"]
+    allowed_domains = ['idealista.com']
+    custom_settings = {
+        "USER_AGENT": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/71.0.3578.80 Chrome/71.0.3578.80 Safari/537.36",
+        'CLOSESPIDER_PAGECOUNT': 2
+    }
+
+    rules = (
+        #Paginación
+        Rule(LinkExtractor(allow=r'/venta-viviendas/madrid/tetuan/cuzco-castillejos/'), follow=True),
+        #Detalle de los productos
+        Rule(LinkExtractor(allow=r'/inmueble/'), callback='parse_items', follow=True)
+    )
+
+    def parse_items(self, response):
+        sel = Selector(response)
+        item = ItemLoader(Casa(), sel)
+        item.add_xpath("name", "//div[@class='main-info__title']/h1/span/text()")
+        item.add_xpath("precio", "//div[@class='info-data']/span/span/text()")
+        item.add_xpath("distrito", "//div[@class='main-info__title']/span/span/text()")
+
+        yield item.load_item()
